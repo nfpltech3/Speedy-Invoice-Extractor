@@ -1,0 +1,97 @@
+=== PAGE 1 ===
+SPEEDY MULTIMODES LIMITED
+(Formerly Known as DBC PORT LOGISTICS LTD.)CFS-JNP, Sonari Village, Taluka Uran, Navi Mumbai, 400 707. Tel:+91 022
+61950900 Fax No: 022-61950943 Work:+91 022 61950900 Ext:229 CIN: U60100MH1987PLC042061
+TAX INVOICE CUM RECEIPT - (STUFFING OF EXPORT CONTAINER)
+Invoice No : EBI001926/25-26S Invoice Date : 31/03/2026
+Billing Party : NAGARKOT FORWARDERS PVT LTD
+Address : 207, 2, MAHINDER CHAMBERS, W T PATIL MARG, OPP. DUKES COMPANY,
+CHEMBUR EAST, Mumbai City, Maharashtr
+GSTIN : 27AACCN5739J1Z4 PAN No : AACCN5739J
+State : Maharashtra -27 Place Of Supply : Maharashtra -27
+Agent : NAGARKOT FORWARDERS PVT LTD
+Exporter :
+Line Name: MAERSK INDIA PVT LTD
+On Ledger Acc Of : NAGARKOT FORWARDERS PVT LTD
+IRN No : a0ea0f3b97e031346e94fb6d7c7aa11555d4247e7b83401feb99bf5c5bc843fb
+Sr.No SAC Bill Item Description Amount in INR
+1 996711 CONTAINER HANDLING SERVICE 9000.00
+CGST - 9.00% 810.00
+SGST - 9.00% 810.00
+Round off 0.00
+Inv Amt In Words:Rupees Ten Thousand Six Hundred And Twenty Only. Inv Amt: ₹ 10,620.00
+Sr.No Details of Bill Item Description Amount in INR
+1 Buffer container Handling Charges 9,000.00
+Total : ₹ 9,000.00
+Shipping Bill Details
+Sr No Shipping Bill No Carting Weight Area VehicleNo Party Invoice CHA Exporter Item Desc Amount
+Date No
+1 1835877 0.000 0.000 100008525 NAGARKOT SKODA AUTO PARTS AND 0.000
+FORWARDE VOLKSWAGE ACCESSORIES
+RS PVT LTD N INDIA OF THE MOTOR
+PVT.LTD. VEHICLES OF
+HEADINGS
+8701 TO 8705
+Container Details
+Cont Cont Stuffed Cargo
+Sr No Cont No Cargo Wt Gross Wt Empty in Dt Out Date HD OR Stuff Date Commodity
+Size Type Pkgs Type
+1 MRSU6631397 40 HC 4019 7819 30 27/03/2026 GENL GENERAL
+Receipt
+Received with thanks from M/s.NAGARKOT FORWARDERS PVT LTD
+Pay Mode Cheque No Cheque Date Bank Details Amount
+Cheque 030642 31/03/2026 HDFC BANK 10440.000
+TDS 180.000
+Recd Amt: ₹ Ten Thousand Six Hundred And Twenty Only. Recd Amt : ₹ 10,620.00
+For SPEEDY MULTIMODES LIMITED
+Remarks :-
+
+--- TABLE 1 ---
+['Invoice No :', 'EBI001926/25-26S', 'Invoice Date :', '31/03/2026']
+['Billing Party :', 'NAGARKOT FORWARDERS PVT LTD', None, None]
+['Address :', '207, 2, MAHINDER CHAMBERS, W T PATIL MARG, OPP. DUKES COMPANY,\nCHEMBUR EAST, Mumbai City, Maharashtr', None, None]
+['GSTIN :', '27AACCN5739J1Z4', 'PAN No :', 'AACCN5739J']
+['State :', 'Maharashtra -27', 'Place Of Supply :', 'Maharashtra -27']
+['Agent :', 'NAGARKOT FORWARDERS PVT LTD', None, None]
+['Exporter :', '', None, None]
+['Line Name:', 'MAERSK INDIA PVT LTD', None, None]
+['On Ledger Acc Of :', 'NAGARKOT FORWARDERS PVT LTD', None, None]
+['IRN No :', 'a0ea0f3b97e031346e94fb6d7c7aa11555d4247e7b83401feb99bf5c5bc843fb', None, None]
+
+--- TABLE 2 ---
+['', None, None, None, None]
+['Sr.No', 'SAC', 'Bill Item Description', None, 'Amount in INR']
+['1', '996711', 'CONTAINER HANDLING SERVICE', None, '9000.00']
+['', '', 'CGST - 9.00%', None, '810.00']
+['', '', 'SGST - 9.00%', None, '810.00']
+['', '', 'Round off', None, '0.00']
+['Inv Amt In Words:Rupees Ten Thousand Six Hundred And Twenty Only.', None, None, 'Inv Amt:', '₹ 10,620.00']
+
+--- TABLE 3 ---
+['Sr.No', None, 'Details of Bill Item Description', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, 'Amount in INR', None, None, None, None]
+['1', None, 'Buffer container Handling Charges', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, '9,000.00', None, None, None, None]
+['', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, 'Total :', '₹ 9,000.00', None, None, None, None]
+['Shipping Bill Details', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+['Sr No', 'Shipping Bill No', None, None, 'Carting\nDate', None, 'Weight', 'Area', None, 'VehicleNo', None, 'Party Invoice\nNo', None, None, 'CHA', None, 'Exporter', None, None, 'Item Desc', None, None, 'Amount']
+['1', '1835877', None, None, '', None, '0.000', '0.000', None, '', None, '100008525', None, None, 'NAGARKOT\nFORWARDE\nRS PVT LTD', None, 'SKODA AUTO\nVOLKSWAGE\nN INDIA\nPVT.LTD.', None, None, 'PARTS AND\nACCESSORIES\nOF THE MOTOR\nVEHICLES OF\nHEADINGS\n8701 TO 8705', None, None, '0.000']
+['Container Details', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+['Sr No', 'Cont No', None, 'Cont\nSize', None, 'Cont\nType', 'Cargo Wt', None, 'Gross Wt', None, 'Stuffed\nPkgs', None, 'Empty in Dt', 'Out Date', None, 'HD OR', None, 'Stuff Date', None, None, 'Cargo\nType', 'Commodity', None]
+['1', 'MRSU6631397', None, '40', None, 'HC', '4019', None, '7819', None, '30', None, '', '', None, '', None, '27/03/2026', None, None, 'GENL', 'GENERAL', None]
+['Receipt', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+
+--- TABLE 4 ---
+['Pay Mode', 'Cheque No', 'Cheque Date', 'Bank Details', None, 'Amount']
+['Cheque', '030642', '31/03/2026', 'HDFC BANK', None, '10440.000']
+['TDS', '', '', '', None, '180.000']
+['Recd Amt: ₹ Ten Thousand Six Hundred And Twenty Only.', None, None, None, 'Recd Amt :', '₹ 10,620.00']
+
+=== PAGE 2 ===
+Authorised Signatory
+GSTIN : 27AABCS4966R1ZH STATE : MAHARASHTRA - 27 PAN : AABCS4966R TAN : MUMS35648E
+Kindly issue Cheque/DD in name of SPEEDY MULTIMODES LIMITED, Bank Details for RTGS - HDFC A/c No. : 57500000469668 IFSC
+Code : HDFC0000110. This document is not a guarantee for the delivery of Container/Cargo. Delivery is strictly on completion of
+customs & other statutory formalities. This is a system generated bill. For any clarification regarding charges or account related enquiries,
+kindly contact impbilling@speedycfs.com
+** Please do not deduct the TDS on the GST Component as per the Circular No. 23/2017 issued by CBDT. Please deduct TDS on
+the basic amount only.**
+

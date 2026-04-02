@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+dist/
+build/
+# *.spec  <-- REMOVED: Keep .spec files in repo for consistent builds!
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
+*.pdf
+*.log
