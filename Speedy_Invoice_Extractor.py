@@ -425,7 +425,19 @@ class SpeedyApp:
         if file:
             self.job_register_path = file
             try:
-                self.job_df = pd.read_excel(self.job_register_path)
+                # 1. Preview first 10 rows to dynamically find the correct header row
+                preview_df = pd.read_excel(self.job_register_path, header=None, nrows=10)
+                header_idx = 0
+                for i in range(len(preview_df)):
+                    row_strs = [str(x).lower() for x in preview_df.iloc[i].values]
+                    if any('job no' in x for x in row_strs) and \
+                       (any('sb no' in x for x in row_strs) or any('shipping bill' in x for x in row_strs)):
+                        header_idx = i
+                        break
+                        
+                # 2. Load the full dataframe using the found header index
+                self.job_df = pd.read_excel(self.job_register_path, header=header_idx)
+                
                 self.excel_label.config(
                     text=f"\u2713  {os.path.basename(file)}",
                     fg=TEXT_PRIMARY)
@@ -466,13 +478,14 @@ class SpeedyApp:
             parsed_rows = []
             ok_count = 0
             fail_count = 0
+            missing_job_count = 0
 
             for i, pdf in enumerate(self.selected_files, 1):
                 fname = os.path.basename(pdf)
                 inv = parse_invoice(pdf)
 
                 if not inv.invoice_number:
-                    self._log(f"[{i}/{total}] {fname}  \u2717 FAILED — "
+                    self._log(f"[{i}/{total}] {fname}  \u2717 FAILED \u2014 "
                               f"{', '.join(inv.extraction_errors)}")
                     fail_count += 1
                     continue
@@ -486,11 +499,17 @@ class SpeedyApp:
                     if job_no:
                         sb_info += f" \u2192 {job_no}"
                     else:
-                        sb_info += " \u2192 No match"
+                        sb_info += " \u2192 \u26A0 NOT IN REGISTER"
+                        missing_job_count += 1
+                else:
+                    sb_info = "\u26A0 NO SB EXTRACTED"
+                    missing_job_count += 1
 
                 parsed_rows.append(invoice_to_csv_row(inv, job_no))
                 ok_count += 1
-                self._log(f"[{i}/{total}] {inv.invoice_number}  |  "
+                
+                status_mark = "\u2713" if job_no else "\u26A0"
+                self._log(f"[{i}/{total}] {status_mark} {inv.invoice_number}  |  "
                           f"\u20B9{inv.total_amount:,.2f}  |  {sb_info}")
 
             self._log("")  # blank line
@@ -505,6 +524,10 @@ class SpeedyApp:
                     writer.writerows(parsed_rows)
                 self._log(f"\u2713 CSV saved: {os.path.basename(filepath)}")
                 self._log(f"  {ok_count} OK, {fail_count} failed  |  {out_dir}")
+                
+                if missing_job_count > 0:
+                    self._log(f"\n  \u26A0 IMPORTANT: {missing_job_count} invoice(s) generated without a Job Number!")
+                
                 self.root.after(0, lambda fp=filepath: messagebox.showinfo(
                     "Success", f"CSV saved:\n{fp}"))
             else:
