@@ -209,7 +209,7 @@ def invoice_to_csv_row(inv: InvoiceData, job_no: str) -> dict:
         "Amount ": str(inv.base_amount),
         "Start Date": "",
         "End Date": "",
-        "WH Tax Code": "194C",
+        "WH Tax Code": "1024C",
         "WH Tax Percentage": "2",
         "WH Tax Taxable": str(inv.base_amount),
         "WH Tax Amount": str(wh_tax_amount),
