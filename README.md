@@ -6,6 +6,7 @@ Automates the extraction of line-item data from Speedy Multimodes Limited PDFs a
 - Python 3.11
 - Tkinter (GUI)
 - pdfplumber (PDF Data Extraction)
+- Google GenAI (Gemini Vision for Scanned PDFs)
 - pandas / openpyxl (Data formatting/export)
 
 ---
@@ -49,6 +50,15 @@ pip install -r requirements.txt
 4. Run application
 ```bash
 python gui_app.py
+```
+
+---
+
+### Environment Variables
+
+For scanned PDFs to be processed correctly, you must create a `.env` file in the same directory containing your Gemini API key:
+```env
+GEMINI_API_KEY="your_api_key_here"
 ```
 
 ---

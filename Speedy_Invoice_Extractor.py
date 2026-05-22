@@ -11,6 +11,115 @@ from tkinter import (
 )
 import pandas as pd
 import pdfplumber
+import json
+import time
+import io
+import fitz
+from pydantic import BaseModel, Field
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ==========================================
+# GEMINI API SETUP
+# ==========================================
+_raw_keys = os.environ.get("GEMINI_API_KEY", "")
+API_KEY_LIST = [k.strip() for k in _raw_keys.split(",") if k.strip()]
+CURRENT_KEY_INDEX = 0
+
+try:
+    gemini_client = genai.Client(api_key=API_KEY_LIST[0]) if API_KEY_LIST else None
+except Exception as e:
+    gemini_client = None
+
+def rotate_api_key():
+    global CURRENT_KEY_INDEX, gemini_client
+    CURRENT_KEY_INDEX += 1
+    if CURRENT_KEY_INDEX < len(API_KEY_LIST):
+        gemini_client = genai.Client(api_key=API_KEY_LIST[CURRENT_KEY_INDEX])
+    else:
+        raise Exception("All API keys have been exhausted/failed.")
+
+class GeminiInvoiceData(BaseModel):
+    invoice_number: str | None = Field(description="Invoice Number (Full alphanumeric string)")
+    invoice_date: str | None = Field(description="Invoice Date in DD/MM/YYYY")
+    sac_code: str | None = Field(description="SAC Code for CONTAINER HANDLING SERVICE")
+    shipping_bill_no: str | None = Field(description="Shipping Bill No or SB No")
+    base_amount: float | None = Field(description="Base Amount (before tax)")
+    cgst_amount: float | None = Field(description="CGST Amount")
+    sgst_amount: float | None = Field(description="SGST Amount")
+    total_amount: float | None = Field(description="Inv Amt (Grand Total)")
+    tds_amount: float | None = Field(description="TDS Amount")
+
+class GeminiInvoiceDataList(BaseModel):
+    invoices: list[GeminiInvoiceData]
+
+SPEEDY_EXTRACTION_PROMPT = """You are an expert invoice data extractor for Speedy CFS invoices.
+The provided document may contain MULTIPLE invoices across several pages. Extract an array containing ALL invoices found in the document.
+For EACH invoice, extract the following exact fields:
+1. invoice_number: The Invoice No (alphanumeric, e.g., EBI001925/25-26S). Look for labels like "Invoice No:", "Inv No:".
+2. invoice_date: The Invoice Date in exactly DD/MM/YYYY format. Convert it if it's in another format.
+3. sac_code: The SAC code next to 'CONTAINER HANDLING SERVICE' or just the SAC code used for warehouse/handling charges.
+4. shipping_bill_no: The Shipping Bill No (usually a 7-digit number, occasionally longer). Look for "Shipping Bill No" or "SB No".
+5. base_amount: The Base Amount before tax for the service.
+6. cgst_amount: The CGST Amount.
+7. sgst_amount: The SGST Amount.
+8. total_amount: The Inv Amt (final grand total including taxes).
+9. tds_amount: The TDS Amount (if clearly stated, otherwise null).
+Return numbers without commas or currency symbols.
+"""
+
+def call_gemini_extract(pdf_path: str):
+    if not gemini_client:
+        raise Exception("Gemini client not initialized. Check GEMINI_API_KEY.")
+    
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=GeminiInvoiceDataList,
+        temperature=0.0,
+    )
+    
+    doc = fitz.open(pdf_path)
+    contents = [SPEEDY_EXTRACTION_PROMPT]
+    for i in range(min(3, len(doc))):
+        page = doc.load_page(i)
+        pix = page.get_pixmap(dpi=300)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG', quality=90)
+        part = types.Part.from_bytes(data=img_byte_arr.getvalue(), mime_type='image/jpeg')
+        contents.append(part)
+    doc.close()
+    
+    max_retries = 3
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            response = gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=config,
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            err_str = str(e)
+            if "PerDay" in err_str or ("Quota" in err_str and "limit: 0" in err_str):
+                rotate_api_key()
+                attempt = 0
+                continue
+            if "PerMinute" in err_str or "retryDelay" in err_str:
+                time.sleep(15)
+                attempt += 1
+                continue
+            if "503" in err_str or "UNAVAILABLE" in err_str:
+                time.sleep(5)
+                attempt += 1
+                continue
+            raise
+    raise Exception("Gemini extraction failed: exceeded max retries")
 
 try:
     from PIL import Image, ImageTk
@@ -52,73 +161,125 @@ def parse_amount(amt_str: str) -> float:
     try: return float(cleaned)
     except ValueError: return 0.0
 
-def parse_invoice(pdf_path: str) -> InvoiceData:
-    data = InvoiceData()
+def parse_invoice(pdf_path: str) -> list[InvoiceData]:
+    results = []
+    
+    # Check if scanned or text-based
+    extracted_text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            page = pdf.pages[0]
-            text = page.extract_text()
-            tables = page.extract_tables()
-            
-        inv_no_match = re.search(r'Invoice No\s*[:]\s*([^\s]+)', text, re.IGNORECASE)
-        if inv_no_match:
-            data.invoice_number = inv_no_match.group(1).strip()
-            
-        inv_date_match = re.search(r'Invoice Date\s*[:]\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
-        if inv_date_match:
-            data.invoice_date = parse_date(inv_date_match.group(1).strip())
-            
-        sac_match = re.search(r'(\d+)\s+CONTAINER HANDLING SERVICE\s+([\d,]+\.?\d*)', text)
-        if sac_match:
-            data.sac_code = sac_match.group(1).strip()
-            data.base_amount = parse_amount(sac_match.group(2))
-            
-        cgst_match = re.search(r'CGST\s*-\s*\d+(?:\.\d+)?%\s+([\d,]+\.?\d*)', text)
-        if cgst_match:
-            data.cgst_amount = parse_amount(cgst_match.group(1))
-            
-        sgst_match = re.search(r'SGST\s*-\s*\d+(?:\.\d+)?%\s+([\d,]+\.?\d*)', text)
-        if sgst_match:
-            data.sgst_amount = parse_amount(sgst_match.group(1))
-            
-        inv_amt_match = re.search(r'Inv Amt:\s*₹?\s*([\d,]+\.?\d*)', text)
-        if inv_amt_match:
-            data.total_amount = parse_amount(inv_amt_match.group(1))
-            
-        tds_match = re.search(r'TDS\s+([\d,]+\.?\d*)', text)
-        if tds_match:
-            data.tds_amount = parse_amount(tds_match.group(1))
-        else:
-            data.tds_amount = round(data.base_amount * 0.02, 2)
-            
-        # Extract Shipping Bill No from Tables
-        for table in tables:
-            for i, row in enumerate(table):
-                # Search for Shipping Bill No header
-                str_row = [str(x) for x in row]
-                if 'Shipping Bill No' in str_row:
-                    # It's usually in the row right below the header row
-                    if i + 1 < len(table):
-                        next_row = [str(x) for x in table[i+1]]
-                        # Assuming the 2nd column (index 1) is Shipping Bill No as seen in extraction
-                        if len(next_row) > 1 and next_row[1].isdigit():
-                            data.shipping_bill_no = next_row[1].strip()
-                        elif len(next_row) > 2 and next_row[2].isdigit():
-                            data.shipping_bill_no = next_row[2].strip()
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    extracted_text += text + "\n"
+    except Exception:
+        pass
+    
+    if len(extracted_text.strip()) <= 100:
+        # Scanned PDF -> Use Gemini API
+        try:
+            gem_res = call_gemini_extract(pdf_path)
+            invoices = gem_res.get("invoices", [])
+            for inv_data in invoices:
+                data = InvoiceData()
+                data.invoice_number = inv_data.get("invoice_number") or ""
+                data.invoice_date = parse_date(inv_data.get("invoice_date") or "")
+                data.sac_code = inv_data.get("sac_code") or ""
+                data.shipping_bill_no = inv_data.get("shipping_bill_no") or ""
+                
+                data.base_amount = parse_amount(inv_data.get("base_amount") or 0.0)
+                data.cgst_amount = parse_amount(inv_data.get("cgst_amount") or 0.0)
+                data.sgst_amount = parse_amount(inv_data.get("sgst_amount") or 0.0)
+                data.total_amount = parse_amount(inv_data.get("total_amount") or 0.0)
+                
+                tds = inv_data.get("tds_amount")
+                if tds is not None:
+                    data.tds_amount = parse_amount(tds)
+                else:
+                    data.tds_amount = round(data.base_amount * 0.02, 2)
+                    
+                if not data.invoice_number:
+                    data.extraction_errors.append("Invoice No not found in PDF by Gemini.")
+                results.append(data)
+        except Exception as e:
+            data = InvoiceData()
+            data.extraction_errors.append(f"Gemini API Error: {str(e)}")
+            results.append(data)
+        return results
 
-        # Regex fallback for Shipping Bill if table parsing failed
-        if not data.shipping_bill_no:
-            sb_fallback = re.search(r'Shipping Bill Details\s*\n.*?\n.*?\n1\s+(\d{5,10})', text)
-            if sb_fallback:
-                data.shipping_bill_no = sb_fallback.group(1)
-            
-        if not data.invoice_number:
-            data.extraction_errors.append("Invoice No not found in PDF.")
-            
+    # Text-based PDF -> Use existing pdfplumber regex extraction
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                data = InvoiceData()
+                text = page.extract_text() or ""
+                tables = page.extract_tables() or []
+                
+                inv_no_match = re.search(r'Invoice No\s*[:]\s*([^\s]+)', text, re.IGNORECASE)
+                if inv_no_match:
+                    data.invoice_number = inv_no_match.group(1).strip()
+                    
+                inv_date_match = re.search(r'Invoice Date\s*[:]\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
+                if inv_date_match:
+                    data.invoice_date = parse_date(inv_date_match.group(1).strip())
+                    
+                sac_match = re.search(r'(\d+)\s+CONTAINER HANDLING SERVICE\s+([\d,]+\.?\d*)', text)
+                if sac_match:
+                    data.sac_code = sac_match.group(1).strip()
+                    data.base_amount = parse_amount(sac_match.group(2))
+                    
+                cgst_match = re.search(r'CGST\s*-\s*\d+(?:\.\d+)?%\s+([\d,]+\.?\d*)', text)
+                if cgst_match:
+                    data.cgst_amount = parse_amount(cgst_match.group(1))
+                    
+                sgst_match = re.search(r'SGST\s*-\s*\d+(?:\.\d+)?%\s+([\d,]+\.?\d*)', text)
+                if sgst_match:
+                    data.sgst_amount = parse_amount(sgst_match.group(1))
+                    
+                inv_amt_match = re.search(r'Inv Amt:\s*₹?\s*([\d,]+\.?\d*)', text)
+                if inv_amt_match:
+                    data.total_amount = parse_amount(inv_amt_match.group(1))
+                    
+                tds_match = re.search(r'TDS\s+([\d,]+\.?\d*)', text)
+                if tds_match:
+                    data.tds_amount = parse_amount(tds_match.group(1))
+                else:
+                    data.tds_amount = round(data.base_amount * 0.02, 2)
+                    
+                # Extract Shipping Bill No from Tables
+                for table in tables:
+                    for i, row in enumerate(table):
+                        # Search for Shipping Bill No header
+                        str_row = [str(x) for x in row]
+                        if 'Shipping Bill No' in str_row:
+                            # It's usually in the row right below the header row
+                            if i + 1 < len(table):
+                                next_row = [str(x) for x in table[i+1]]
+                                # Assuming the 2nd column (index 1) is Shipping Bill No as seen in extraction
+                                if len(next_row) > 1 and next_row[1].isdigit():
+                                    data.shipping_bill_no = next_row[1].strip()
+                                elif len(next_row) > 2 and next_row[2].isdigit():
+                                    data.shipping_bill_no = next_row[2].strip()
+
+                # Regex fallback for Shipping Bill if table parsing failed
+                if not data.shipping_bill_no:
+                    sb_fallback = re.search(r'Shipping Bill Details\s*\n.*?\n.*?\n1\s+(\d{5,10})', text)
+                    if sb_fallback:
+                        data.shipping_bill_no = sb_fallback.group(1)
+                    
+                if not data.invoice_number:
+                    data.extraction_errors.append("Invoice No not found on page.")
+                
+                # Only append if it looks somewhat like an invoice (has invoice number or amounts)
+                if data.invoice_number or data.total_amount > 0:
+                    results.append(data)
+                    
     except Exception as e:
+        data = InvoiceData()
         data.extraction_errors.append(f"Error reading PDF: {str(e)}")
+        results.append(data)
         
-    return data
+    return results
 
 def get_job_no_from_df(shipping_bill: str, job_df: pd.DataFrame) -> str:
     if not shipping_bill or job_df is None or job_df.empty:
@@ -373,6 +534,12 @@ class SpeedyApp:
                                 fg=TEXT_SECONDARY, bg=BG_COLOR,
                                 font=("Segoe UI", 9))
         self.status_lbl.pack(side=LEFT, padx=20)
+        
+        self.clear_btn = ttk.Button(action_frame,
+                                     text="\u27F3  Clear All",
+                                     command=self._clear_all,
+                                     style="Modern.TButton")
+        self.clear_btn.pack(side=RIGHT)
 
         # Processing Log Card
         log_card = ttk.LabelFrame(body, text="  Processing Log  ",
@@ -446,6 +613,17 @@ class SpeedyApp:
                     text=f"Failed to load: {e}", fg=ERROR_RED)
                 self.job_df = None
 
+    def _clear_all(self):
+        self.selected_files = []
+        self.job_register_path = None
+        self.job_df = None
+        self.excel_label.config(text="Not selected", fg=ERROR_RED)
+        self.file_label.config(text="No files selected", fg=TEXT_SECONDARY)
+        self.status_lbl.config(text="Ready", fg=TEXT_SECONDARY)
+        self.log_txt.config(state="normal")
+        self.log_txt.delete("1.0", END)
+        self.log_txt.config(state="disabled")
+
     # ── Processing ──
     def _process(self):
         if not self.job_register_path or self.job_df is None:
@@ -482,35 +660,45 @@ class SpeedyApp:
 
             for i, pdf in enumerate(self.selected_files, 1):
                 fname = os.path.basename(pdf)
-                inv = parse_invoice(pdf)
-
-                if not inv.invoice_number:
-                    self._log(f"[{i}/{total}] {fname}  \u2717 FAILED \u2014 "
-                              f"{', '.join(inv.extraction_errors)}")
+                inv_list = parse_invoice(pdf)
+                
+                if not inv_list:
+                    self._log(f"[{i}/{total}] {fname}  \u2717 FAILED \u2014 No invoices extracted.")
                     fail_count += 1
                     continue
 
-                # Job No lookup
-                job_no = ""
-                sb_info = ""
-                if inv.shipping_bill_no:
-                    job_no = get_job_no_from_df(inv.shipping_bill_no, self.job_df)
-                    sb_info = f"SB:{inv.shipping_bill_no}"
-                    if job_no:
-                        sb_info += f" \u2192 {job_no}"
-                    else:
-                        sb_info += " \u2192 \u26A0 NOT IN REGISTER"
-                        missing_job_count += 1
-                else:
-                    sb_info = "\u26A0 NO SB EXTRACTED"
-                    missing_job_count += 1
+                for j, inv in enumerate(inv_list, 1):
+                    prefix = f"[{i}/{total}]"
+                    if len(inv_list) > 1:
+                        prefix = f"[{i}/{total} - Inv {j}]"
 
-                parsed_rows.append(invoice_to_csv_row(inv, job_no))
-                ok_count += 1
-                
-                status_mark = "\u2713" if job_no else "\u26A0"
-                self._log(f"[{i}/{total}] {status_mark} {inv.invoice_number}  |  "
-                          f"\u20B9{inv.total_amount:,.2f}  |  {sb_info}")
+                    if not inv.invoice_number:
+                        self._log(f"{prefix} {fname}  \u2717 FAILED \u2014 "
+                                  f"{', '.join(inv.extraction_errors)}")
+                        fail_count += 1
+                        continue
+
+                    # Job No lookup
+                    job_no = ""
+                    sb_info = ""
+                    if inv.shipping_bill_no:
+                        job_no = get_job_no_from_df(inv.shipping_bill_no, self.job_df)
+                        sb_info = f"SB:{inv.shipping_bill_no}"
+                        if job_no:
+                            sb_info += f" \u2192 {job_no}"
+                        else:
+                            sb_info += " \u2192 \u26A0 NOT IN REGISTER"
+                            missing_job_count += 1
+                    else:
+                        sb_info = "\u26A0 NO SB EXTRACTED"
+                        missing_job_count += 1
+
+                    parsed_rows.append(invoice_to_csv_row(inv, job_no))
+                    ok_count += 1
+                    
+                    status_mark = "\u2713" if job_no else "\u26A0"
+                    self._log(f"{prefix} {status_mark} {inv.invoice_number}  |  "
+                              f"\u20B9{inv.total_amount:,.2f}  |  {sb_info}")
 
             self._log("")  # blank line
 
